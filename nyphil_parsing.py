@@ -47,18 +47,21 @@ all_concerts = get_concerts_in_programs(all_programs)
 
 all_event_types = get_event_types(all_concerts)
 
-all_subscription_programs = get_programs_by_event_type(all_programs, 
-                                                       "Subscription Season")
+all_subscription_programs = list(get_programs_by_event_type(all_programs, 
+                                                       "Subscription Season"))
 
 all_works = get_all_works(all_subscription_programs)
 
 sibelius_works = get_works_for_composer(all_works, "Sibelius")
 
-print(sibelius_works)
+def work_is_composed_by(composer:str, work):
+    return re.search(composer, work["composerName"], re.IGNORECASE)
 
-# with open("sibelius_works.txt", mode="w") as fp:
-#     for w in sibelius_works:
-#         fp.write(f"{w}\n")
+sibelius_programs = [program for program in all_subscription_programs 
+                     for work in program["works"] 
+                     if 'composerName' in work 
+                     and re.search("sibelius", work["composerName"], 
+                        re.IGNORECASE)]
 
+print(len(sibelius_programs))
 
-        
