@@ -1,4 +1,5 @@
 # coding: utf-8
+from itertools import groupby
 import json
 import re
 from collections.abc import Iterable, Mapping
@@ -41,6 +42,13 @@ def get_works_for_composer(works: Iterable[Work], composer: str) \
     return sorted((work.title for work in works
                    if re.search(composer, work.composer, re.IGNORECASE)))
 
+def get_programs_for_composer(programs, composer):
+    return [program for program in programs
+                    for work in program["works"] 
+                    if 'composerName' in work 
+                    and re.search(composer, work["composerName"], 
+                        re.IGNORECASE)]
+
 all_programs = get_all_programs()
 
 all_concerts = get_concerts_in_programs(all_programs)
@@ -54,14 +62,54 @@ all_works = get_all_works(all_subscription_programs)
 
 sibelius_works = get_works_for_composer(all_works, "Sibelius")
 
-def work_is_composed_by(composer:str, work):
-    return re.search(composer, work["composerName"], re.IGNORECASE)
+sibelius_programs = get_programs_for_composer(all_subscription_programs, 
+                                              "sibelius")
 
-sibelius_programs = [program for program in all_subscription_programs 
-                     for work in program["works"] 
-                     if 'composerName' in work 
-                     and re.search("sibelius", work["composerName"], 
-                        re.IGNORECASE)]
+# print(len(sibelius_programs))
 
-print(len(sibelius_programs))
+# with open("sibelius_programs.json", mode="w") as fp:
+#     json.dump(sibelius_programs, fp, indent=4)
 
+# with open("sibelius_works.txt", mode="w") as fp:
+#     for work in sibelius_works:
+#         fp.write(f"{work}\n")
+
+with open("sibelius_major_works.txt") as fp:
+    sibelius_major_works = [line[:-1] for line in fp]
+
+import io
+import hashlib
+
+def get_program_hash_digest(program):
+    with io.StringIO() as sp:
+        json.dump(program, sp, indent=4)
+        contents = sp.getvalue()
+    m = hashlib.sha256()
+    m.update(contents.encode())
+    return m.hexdigest()
+
+class ProgramDigest(NamedTuple):
+    hexdigest:str
+    program:dict
+
+# Filter programs by major works:
+programs_with_major_works = [ProgramDigest(get_program_hash_digest(program),
+                                program) 
+                             for program in sibelius_programs
+                             for work in program["works"]
+                             if "workTitle" in work 
+                             and work["workTitle"] in sibelius_major_works]
+
+programs_with_major_works.sort(key=lambda pd:pd.hexdigest)
+
+deduped_programs_with_major_works \
+    = [list(values)[0].program for _, values 
+       in groupby(programs_with_major_works, key=lambda pd:pd.hexdigest)]
+    
+print(len(deduped_programs_with_major_works))
+
+with open("deduped_sibelius_programs.json", mode="w") as fp:
+    json.dump(deduped_programs_with_major_works, fp, indent=4)
+
+# with open("programs_with_major_works.json", mode="w") as fp:
+#     json.dump(programs_with_major_works, fp, indent=4)
